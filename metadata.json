@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Shreya AI: Your Creative Companion",
+  "description": "A caring virtual companion with advanced creative abilities including real-time voice, vision, image generation, and video creation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

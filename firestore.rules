@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (matches auth.uid)
+    // Fields:
+    //   - name: string (required, max 100 chars)
+    //   - habits: list of strings (optional, max 50 items, max 100 chars each)
+    //   - preferences: list of strings (optional, max 50 items, max 100 chars each)
+    //   - routine: list of strings (optional, max 50 items, max 100 chars each)
+    //   - importantDates: list of objects (optional, max 50 items)
+    //
+    // Collection: users/{userId}/conversations
+    // Document ID: {convId}
+    // Fields:
+    //   - timestamp: string (required, max 50 chars)
+    //   - summary: string (required, max 2000 chars)
+    //   - mood: string (optional, max 50 chars)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "inas75204@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !('field' in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    function isValidStringList(listField, maxItems, maxStringLen) {
+      return !(listField in request.resource.data) ||
+             (request.resource.data[listField] is list &&
+              request.resource.data[listField].size() <= maxItems);
+    }
+
+    function isValidImportantDates(field, maxItems) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is list &&
+              request.resource.data[field].size() <= maxItems);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile() {
+      return hasOnlyAllowedFields(['name', 'habits', 'preferences', 'routine', 'importantDates', 'role']) &&
+             validStringLength('name', 1, 100) &&
+             isValidStringList('habits', 50, 100) &&
+             isValidStringList('preferences', 50, 100) &&
+             isValidStringList('routine', 50, 100) &&
+             isValidImportantDates('importantDates', 50) &&
+             isValidOptionalString('role', 1, 20);
+    }
+
+    function isValidConversation() {
+      return hasOnlyAllowedFields(['timestamp', 'summary', 'mood']) &&
+             validStringLength('timestamp', 1, 50) &&
+             validStringLength('summary', 1, 2000) &&
+             isValidOptionalString('mood', 0, 50);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) && isValidUserProfile() && (!('role' in request.resource.data) || request.resource.data.role == 'user')) || isAdmin();
+      allow update: if (isOwner(userId) && isValidUserProfile() && (request.resource.data.role == resource.data.role)) || isAdmin();
+      allow delete: if isAdmin();
+      
+      match /conversations/{convId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidConversation();
+        allow update: if isOwner(userId) && isValidConversation();
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

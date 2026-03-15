@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user habits, preferences, and routine for Sherya's memory.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "habits": { "type": "array", "items": { "type": "string" } },
+        "preferences": { "type": "array", "items": { "type": "string" } },
+        "routine": { "type": "array", "items": { "type": "string" } },
+        "importantDates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string" },
+              "event": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["name"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Stores a summary of a past conversation for memory recall.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "summary": { "type": "string" },
+        "mood": { "type": "string" }
+      },
+      "required": ["timestamp", "summary"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data."
+    },
+    "/users/{userId}/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Past conversation summaries."
+    }
+  }
+}
